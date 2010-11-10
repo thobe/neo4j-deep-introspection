@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="jnic" default="run">
+  <dirname property="__jnic.root" file="${ant.file.jnic}"/>
+  <property name="__jnic.makefile" location="${__jnic.root}/makefile"/>
+
+  <!-- Section for recognition of supported Operating Systems -->
+  <property name="__jnic.os.supported"
+	    value="win32 solaris freebsd openbsd darwin linux"/>
+  <condition property="__jnic.os" value="win32">
+    <os family="windows"/>
+  </condition>
+  <condition property="__jnic.os" value="solaris">
+    <os name="SunOS"/>
+  </condition>
+  <condition property="__jnic.os" value="freebsd">
+    <os name="FreeBSD"/>
+  </condition>
+  <condition property="__jnic.os" value="openbsd">
+    <os name="OpenBSD"/>
+  </condition>
+  <condition property="__jnic.os" value="darwin">
+    <os family="mac"/>
+  </condition>
+  <condition property="__jnic.os" value="linux">
+    <os name="Linux"/>
+  </condition>
+
+  <!-- Define java home -->
+  <condition property="__jnic.java.home" value="${java.home}">
+    <available file="${java.home}/include"/>
+  </condition>
+  <condition property="__jnic.java.home" value="${java.home}/..">
+    <available file="${java.home}/../include"/>
+  </condition>
+  <condition property="__jnic.java.home" value="/System/Library/Frameworks/JavaVM.framework/Versions/Current">
+    <and>
+      <os family="mac"/>
+      <contains substring="/System/Library/Java/JavaVirtualMachines"
+                string="${java.home}"/>
+      <available file="/System/Library/Frameworks/JavaVM.framework/Versions/Current"/>
+    </and>
+  </condition>
+
+  <macrodef name="jnic">
+    <attribute name="library"/>
+    <attribute name="sourcepath"/>
+    <attribute name="version"/>
+    <attribute name="headerpath" default="@{sourcepath}"/>
+    <attribute name="destdir" default="@{sourcepath}"/>
+    <attribute name="make" default="make"/>
+    <attribute name="mac.SDKROOT" default=""/>
+    <attribute name="os" default="${__jnic.os}"/>
+    <attribute name="java.home" default="${__jnic.java.home}"/>
+    <attribute name="debug" default="false"/>
+    <attribute name="cflags" default=""/>
+    <sequential>
+      <!-- Check os parameter -->
+      <fail message="Unsupported OS, or OS not specified. (os=@{os})">
+	<condition>
+	  <or>
+	    <equals arg1="@{os}" arg2=""/>
+	    <not>
+	      <contains string="${__jnic.os.supported}" substring="@{os}"/>
+	    </not>
+	  </or>
+	</condition>
+      </fail>
+      <!-- Check java.home parameter -->
+      <fail message="java.home (@{java.home}) must be a JDK, not JRE">
+	<condition>
+	  <or>
+	    <equals arg1="@{java.home}" arg2=""/>
+	    <not><or>
+                <available file="@{java.home}/include"/>
+                <available file="@{java.home}/Headers"/>
+            </or></not>
+	  </or>
+	</condition>
+      </fail>
+      <!-- Define SDKROOT -->
+      <condition property="__jnic.jnic.SDKROOT" value="SDKROOT=@{mac.SDKROOT}">
+	<not><equals arg1="@{mac.SDKROOT}" arg2=""/></not>
+      </condition>
+      <condition property="__jnic.jnic.SDKROOT"
+		 value="SDKROOT=/Developer/SDKs/MacOSX10.5.sdk">
+	<available file="/Developer/SDKs/MacOSX10.5.sdk"/>
+      </condition>
+      <condition property="__jnic.jnic.SDKROOT"
+		 value="SDKROOT=/Developer/SDKs/MacOSX10.4u.sdk"
+		 else="IGNORE=">
+	<available file="/Developer/SDKs/MacOSX10.4u.sdk"/>
+      </condition>
+      <!-- Execute -->
+      <mkdir dir="@{destdir}"/>
+      <exec executable="@{make}" dir="@{sourcepath}" failonerror="true">
+	<arg value="-f${__jnic.makefile}"/>
+	<arg value="LIBNAME=@{library}"/>
+	<arg value="OS=@{os}"/>
+	<arg value="JDK_HOME=@{java.home}"/>
+	<arg value="HEADERPATH=@{headerpath}"/>
+	<arg value="BUILDPATH=@{destdir}"/>
+	<arg value="VERSION=@{version}"/>
+	<arg value="${__jnic.jnic.SDKROOT}"/>
+      </exec>
+    </sequential>
+  </macrodef>
+
+  <target name="run">
+    <jnic library="${library}" version="${version}"
+          sourcepath="${sourcepath}"
+          headerpath="${headerpath}"
+          destdir="${destdir}"/>
+  </target>
+
+</project>

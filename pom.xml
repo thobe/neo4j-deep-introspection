@@ -1,0 +1,91 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.neo4j</groupId>
+    <artifactId>parent-central</artifactId>
+    <version>6</version>
+  </parent>
+
+  <groupId>org.neo4j</groupId>
+  <artifactId>deep-java-introspection</artifactId>
+  <version>0.1-SNAPSHOT</version>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.neo4j</groupId>
+      <artifactId>neo4j-kernel</artifactId>
+      <version>1.2-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.neo4j</groupId>
+      <artifactId>neo4j-management</artifactId>
+      <version>1.2-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.8.1</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Premain-Class>org.neo4j.deepintrospect.IntrospectorImpl</Premain-Class>
+              <Agent-Class>org.neo4j.deepintrospect.IntrospectorImpl</Agent-Class>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>-agentpath:"target/native/lib${artifactId}.jnilib"</argLine>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>build-native</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <property name="source.dir" location="src/main/native"/>
+                <property name="header.dir" location="target/headers"/>
+                <property name="target.dir" location="target/native"/>
+                <mkdir dir="${header.dir}"/>
+                <mkdir dir="${target.dir}"/>
+                <javah classpath="target/classes"
+                       outputfile="target/headers/tooli.h" force="yes">
+                  <class name="org.neo4j.deepintrospect.ToolingInterface"/>
+                </javah>
+                <ant antfile="jnic.xml">
+                  <property name="java.home" value="${java.home}"/>
+                  <property name="version" value="${version}"/>
+                  <property name="library" value="${artifactId}"/>
+                  <property name="sourcepath" value="${source.dir}"/>
+                  <property name="headerpath" value="${header.dir}"/>
+                  <property name="destdir" value="${target.dir}"/>
+                </ant>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+  
+</project>
