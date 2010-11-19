@@ -26,6 +26,6 @@ LIBDIR=$(cd `dirname $EXE`; pwd)
 #    -Dexec.workingdir="$WORKDIR"\
 #    -Dexec.args="-agentpath:'`pwd`/target/native/libdeep-java-introspection.jnilib' -cp %classpath:$WORKDIR/build $*"
 
-java -d32 -agentpath:"$LIBDIR/target/native/libdeep-java-introspection.jnilib"\
+java -d64 -agentpath:"$LIBDIR/target/native/libdeep-java-introspection.jnilib"\
      -cp $LIBDIR/target/dependency/\*:$LIBDIR/target/classes:$WORKDIR/build\
      -ea:org.neo4j.memtest -Xmx1024m "$@"
