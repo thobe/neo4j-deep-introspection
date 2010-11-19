@@ -14,7 +14,9 @@ final class ToolingInterface
         }
     }
 
-    native SizeCount getTransitiveSize( Object obj );
+    native SizeCount getTransitiveSize( Object obj, Class<?> type );
+
+    // native SizeCount getSizeOfAll( Class<?> type );
 
     private ToolingInterface()
     {

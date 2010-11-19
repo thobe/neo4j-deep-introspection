@@ -85,9 +85,7 @@ JavaVM *getJavaVM(JNIEnv *env) {
   return jvm;
 }
 
-JNIEXPORT jboolean JNICALL
-Java_org_neo4j_deepintrospect_ToolingInterface_setupNative
-(JNIEnv *env, jclass cls, jstring options)
+jboolean setupNative(JNIEnv *env, jstring options)
 {
   jvmtiCapabilities capa;
   jvmtiError tiErr;
@@ -111,12 +109,36 @@ Java_org_neo4j_deepintrospect_ToolingInterface_setupNative
     }
   } else {
     return JNI_FALSE;
+  }  
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_neo4j_deepintrospect_ToolingInterface_setupNative
+(JNIEnv *env, jclass cls, jstring options)
+{
+  jclass type;
+  jboolean enabled;
+
+  enabled = setupNative(env, options);
+
+  /*
+  if (enabled) {
+    type = (*env)->FindClass(env,"org/neo4j/kernel/impl/core/NodeImpl");
+    (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 1);
+
+    type = (*env)->FindClass(env,"org/neo4j/kernel/impl/core/RelationshipImpl");
+    (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 2);
   }
+  */
+
+  return enabled;
 }
 
 typedef struct {
   jlong size;
   jlong count;
+  jlong obj_total;
+  jlong obj_count;
 } InstanceCounter;
 
 jvmtiIterationControl JNICALL sum_object_sizes
@@ -131,24 +153,50 @@ jvmtiIterationControl JNICALL sum_object_sizes
   ((InstanceCounter*)user_data)->size += size;
   ((InstanceCounter*)user_data)->count += 1;
 
+  if (class_tag) {
+    ((InstanceCounter*)user_data)->obj_total += size;
+    ((InstanceCounter*)user_data)->obj_count += 1;
+    (*tag_ptr) = class_tag;
+  } else if (referrer_tag) {
+    ((InstanceCounter*)user_data)->obj_total += size;
+    (*tag_ptr) = referrer_tag;
+  }
+
+  return JVMTI_ITERATION_CONTINUE;
+}
+
+jvmtiIterationControl JNICALL clear_tag
+(jlong class_tag, jlong size, jlong* tag_ptr, void* user_data)
+{
+  (*tag_ptr) = 0;
   return JVMTI_ITERATION_CONTINUE;
 }
 
 JNIEXPORT jobject JNICALL
 Java_org_neo4j_deepintrospect_ToolingInterface_getTransitiveSize
-(JNIEnv *env, jobject this, jobject obj)
+(JNIEnv *env, jobject this, jobject obj, jclass type)
 {
   jclass clazz;
   jmethodID init;
   InstanceCounter result;
   result.size = 0;
   result.count = 0;
+  result.obj_total = 0;
+  result.obj_count = 0;
+
+  (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 1);
 
   (*(globalData->jvmti))->IterateOverObjectsReachableFromObject(
      globalData->jvmti, obj, &sum_object_sizes, (void*)&result );
-  
-  clazz = (*env)->FindClass(env, "org/neo4j/deepintrospect/SizeCount");
-  init = (*env)->GetMethodID(env, clazz, "<init>", "(JJ)V");
 
-  return (*env)->NewObject(env, clazz, init, result.size, result.count);
+  (*(globalData->jvmti))->IterateOverHeap(
+     globalData->jvmti, JVMTI_HEAP_OBJECT_TAGGED, clear_tag, NULL );
+
+  (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 0);
+
+  clazz = (*env)->FindClass(env, "org/neo4j/deepintrospect/SizeCount");
+  init = (*env)->GetMethodID(env, clazz, "<init>", "(JJJJ)V");
+
+  return (*env)->NewObject(env, clazz, init, result.size, result.count, 
+                           result.obj_total, result.obj_count);
 }

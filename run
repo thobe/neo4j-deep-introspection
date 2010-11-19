@@ -1,0 +1,31 @@
+#!/bin/sh
+
+WORKDIR=`pwd`
+sources="`find src -name *.java`"
+EXE=$0
+while [ -L "$EXE" ]; do
+    EXE=`readlink $EXE`
+done
+
+LIBDIR=$(cd `dirname $EXE`; pwd)
+
+#cd `dirname $EXE`
+
+#echo Compiling...
+#mvn exec:exec -Dexec.executable="javac"\
+#    -Dexec.workingdir="$WORKDIR"\
+#    -Dexec.args="-cp %classpath -d build $sources" > /dev/null
+#if [ $? != 0 ]; then
+#    echo Compilation failed!
+#    exit
+#else
+#    echo Compilation done.
+#fi
+
+#mvn exec:exec -Dexec.executable="java"\
+#    -Dexec.workingdir="$WORKDIR"\
+#    -Dexec.args="-agentpath:'`pwd`/target/native/libdeep-java-introspection.jnilib' -cp %classpath:$WORKDIR/build $*"
+
+java -d32 -agentpath:"$LIBDIR/target/native/libdeep-java-introspection.jnilib"\
+     -cp $LIBDIR/target/dependency/\*:$LIBDIR/target/classes:$WORKDIR/build\
+     -ea:org.neo4j.memtest -Xmx1024m "$@"

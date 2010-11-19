@@ -7,4 +7,10 @@ public interface Introspector
     String getNodeCacheSize();
 
     String getRelCacheSize();
+
+    String computeNodeCacheSize( String className );
+
+    String computeRelCacheSize( String className );
+
+    // String getObjectSize( Class<?> type );
 }

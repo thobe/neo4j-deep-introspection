@@ -13,10 +13,13 @@ import org.neo4j.management.impl.Neo4jMBean;
 final class IntrospectorImpl extends Neo4jMBean implements Introspector
 {
     private static final Field NODE_CACHE, REL_CACHE;
+    private static final Class<?> NODE_IMPL, REL_IMPL;
     static
     {
         NODE_CACHE = nmField( "nodeCache" );
         REL_CACHE = nmField( "relCache" );
+        NODE_IMPL = getClass( "org.neo4j.kernel.impl.core.NodeImpl" );
+        REL_IMPL = getClass( "org.neo4j.kernel.impl.core.RelationshipImpl" );
     }
 
     private final Object nodeCache, relCache;
@@ -32,6 +35,18 @@ final class IntrospectorImpl extends Neo4jMBean implements Introspector
             relCache = REL_CACHE.get( nm );
         }
         catch ( Exception e )
+        {
+            throw new UnsupportedOperationException( "Reflection failure", e );
+        }
+    }
+
+    private static Class<?> getClass( String className )
+    {
+        try
+        {
+            return Class.forName( className );
+        }
+        catch ( ClassNotFoundException e )
         {
             throw new UnsupportedOperationException( "Reflection failure", e );
         }
@@ -67,32 +82,39 @@ final class IntrospectorImpl extends Neo4jMBean implements Introspector
 
     public String getNodeCacheSize()
     {
-        return format( tooling.getTransitiveSize( nodeCache ) );
-    }
-
-    private String format( SizeCount sizeCount )
-    {
-        return format( sizeCount.size ) + " (in " + sizeCount.count + " objects)";
+        return nodeCacheSize( NODE_IMPL );
     }
 
     public String getRelCacheSize()
     {
-        return format( tooling.getTransitiveSize( relCache ) );
+        return relCacheSize( REL_IMPL );
     }
 
-    private String format( long bytes )
+    public String computeNodeCacheSize( String className )
     {
-        if ( bytes < 10000 )
-        {
-            return bytes + "B";
-        }
-        else if ( bytes < 10000000 )
-        {
-            return String.format( "%.3fkB", ( (double) bytes ) / ( (double) ( 1024 ) ) );
-        }
-        else
-        {
-            return String.format( "%.3fMB", ( (double) bytes ) / ( (double) ( 1024 * 1024 ) ) );
-        }
+        return nodeCacheSize( getClass( className ) );
     }
+
+    public String computeRelCacheSize( String className )
+    {
+        return relCacheSize( getClass( className ) );
+    }
+
+    private String nodeCacheSize( Class<?> payloadLimit )
+    {
+        return tooling.getTransitiveSize( nodeCache, payloadLimit ).toString();
+    }
+
+    private String relCacheSize( Class<?> payloadLimit )
+    {
+        return tooling.getTransitiveSize( relCache, payloadLimit ).toString();
+    }
+
+    /*
+    public String getObjectSize( Class<?> type )
+    {
+        tooling.getSizeOfAll(type);
+        return "";
+    }
+    */
 }
