@@ -1,8 +1,10 @@
 package org.neo4j.deepintrospect;
 
-final class ToolingInterface
+import java.lang.reflect.Field;
+
+public final class ToolingInterface
 {
-    static ToolingInterface getInstance()
+    public static ToolingInterface instance()
     {
         if ( isAvailable )
         {
@@ -14,12 +16,20 @@ final class ToolingInterface
         }
     }
 
-    native SizeCount getTransitiveSize( Object obj, Class<?> type );
-
-    // native SizeCount getSizeOfAll( Class<?> type );
+    public native SizeCount getTransitiveSize( Object obj, Class<?> type );
 
     private ToolingInterface()
     {
+    }
+
+    public long sizeOf( Object obj )
+    {
+        return InspectAgent.sizeOf( obj );
+    }
+
+    long getOffset( Field field )
+    {
+        return InspectAgent.offset( field );
     }
 
     private static native boolean setupNative( String options );

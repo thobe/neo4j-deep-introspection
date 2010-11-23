@@ -12,5 +12,9 @@ public interface Introspector
 
     String computeRelCacheSize( String className );
 
+    String getCachedNodeSize( long id );
+
+    String getCachedRelationshipSize( long id );
+
     // String getObjectSize( Class<?> type );
 }

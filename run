@@ -8,6 +8,7 @@ while [ -L "$EXE" ]; do
 done
 
 LIBDIR=$(cd `dirname $EXE`; pwd)
+JAR=$LIBDIR/target/deep-java-introspection-0.1-SNAPSHOT.jar
 
 #cd `dirname $EXE`
 
@@ -27,5 +28,5 @@ LIBDIR=$(cd `dirname $EXE`; pwd)
 #    -Dexec.args="-agentpath:'`pwd`/target/native/libdeep-java-introspection.jnilib' -cp %classpath:$WORKDIR/build $*"
 
 java -d64 -agentpath:"$LIBDIR/target/native/libdeep-java-introspection.jnilib"\
-     -cp $LIBDIR/target/dependency/\*:$LIBDIR/target/classes:$WORKDIR/build\
-     -ea:org.neo4j.memtest -Xmx1024m "$@"
+     -javaagent:$JAR -cp $LIBDIR/target/dependency/\*:$JAR:$WORKDIR/build\
+     -Xmx1024m "$@"

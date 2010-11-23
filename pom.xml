@@ -16,13 +16,13 @@
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j-kernel</artifactId>
       <version>1.2-SNAPSHOT</version>
-      <scope>provided</scope>
+      <!--scope>provided</scope-->
     </dependency>
     <dependency>
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j-management</artifactId>
       <version>1.2-SNAPSHOT</version>
-      <scope>provided</scope>
+      <!--scope>provided</scope-->
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -39,8 +39,8 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <Premain-Class>org.neo4j.deepintrospect.IntrospectorImpl</Premain-Class>
-              <Agent-Class>org.neo4j.deepintrospect.IntrospectorImpl</Agent-Class>
+              <Premain-Class>org.neo4j.deepintrospect.InspectAgent</Premain-Class>
+              <Agent-Class>org.neo4j.deepintrospect.InspectAgent</Agent-Class>
             </manifestEntries>
           </archive>
         </configuration>

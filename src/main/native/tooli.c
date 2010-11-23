@@ -135,9 +135,10 @@ Java_org_neo4j_deepintrospect_ToolingInterface_setupNative
 }
 
 typedef struct {
-  jlong size;
-  jlong count;
-  jlong obj_total;
+  jlong tot_size;
+  jlong tot_count;
+  jlong tag_size;
+  jlong tag_count;
   jlong obj_count;
 } InstanceCounter;
 
@@ -150,15 +151,18 @@ jvmtiIterationControl JNICALL sum_object_sizes
       reference_kind != JVMTI_REFERENCE_ARRAY_ELEMENT)
     return JVMTI_ITERATION_IGNORE;
 
-  ((InstanceCounter*)user_data)->size += size;
-  ((InstanceCounter*)user_data)->count += 1;
+  ((InstanceCounter*)user_data)->tot_size += size;
+  ((InstanceCounter*)user_data)->tot_count += 1;
 
   if (class_tag) {
-    ((InstanceCounter*)user_data)->obj_total += size;
     ((InstanceCounter*)user_data)->obj_count += 1;
+
+    ((InstanceCounter*)user_data)->tag_size += size;
+    ((InstanceCounter*)user_data)->tag_count += 1;
     (*tag_ptr) = class_tag;
   } else if (referrer_tag) {
-    ((InstanceCounter*)user_data)->obj_total += size;
+    ((InstanceCounter*)user_data)->tag_size += size;
+    ((InstanceCounter*)user_data)->tag_count += 1;
     (*tag_ptr) = referrer_tag;
   }
 
@@ -176,27 +180,77 @@ JNIEXPORT jobject JNICALL
 Java_org_neo4j_deepintrospect_ToolingInterface_getTransitiveSize
 (JNIEnv *env, jobject this, jobject obj, jclass type)
 {
+  jlong TAG = 1;
   jclass clazz;
-  jmethodID init;
+  jmethodID method;
+  jobject java_result;
+  jobject* tagged_objects = NULL;
+  jint n_tagged_objects = 0;
+  int i;
+
   InstanceCounter result;
-  result.size = 0;
-  result.count = 0;
-  result.obj_total = 0;
+
+  if (obj == NULL) return NULL;
+  
+  (*(globalData->jvmti))->GetObjectSize(globalData->jvmti,
+                                        obj, &(result.tot_size));
+  result.tot_count = 1;
+  result.tag_size = 0;
+  result.tag_count = 0;
   result.obj_count = 0;
 
-  (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 1);
+  if (type != NULL) {
+    (*(globalData->jvmti))->SetTag(globalData->jvmti, type, TAG);
+    if ((*env)->IsInstanceOf(env, obj, type)) {
+      (*(globalData->jvmti))->SetTag(globalData->jvmti, obj, TAG);
+      result.tag_count = 1;
+      result.obj_count = 1;
+      result.tag_size = result.tot_size;
+    }
+  }
 
   (*(globalData->jvmti))->IterateOverObjectsReachableFromObject(
      globalData->jvmti, obj, &sum_object_sizes, (void*)&result );
 
+  if (type != NULL) {
+    (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 0);
+    if ((*env)->IsInstanceOf(env, obj, type)) {
+      (*(globalData->jvmti))->GetObjectsWithTags(globalData->jvmti, 1, &TAG,
+                                                 &n_tagged_objects,
+                                                 &tagged_objects, NULL );
+    }
+  }
+
+  clazz = (*env)->FindClass(env, "org/neo4j/deepintrospect/SizeCount");
+  method = (*env)->GetMethodID(env, clazz, "<init>", "(JJJJJ)V");
+
+  java_result = (*env)->NewObject(env, clazz, method,
+                                  result.tot_size, result.tot_count, 
+                                  result.tag_size, result.tag_count,
+                                  result.obj_count);
+
+  method = (*env)->GetMethodID(env,clazz,"specSize","(Ljava/lang/Object;JJ)V");
+    
   (*(globalData->jvmti))->IterateOverHeap(
      globalData->jvmti, JVMTI_HEAP_OBJECT_TAGGED, clear_tag, NULL );
 
-  (*(globalData->jvmti))->SetTag(globalData->jvmti, type, 0);
+  for ( i = 0; i < n_tagged_objects; i++ ) {
+    result.tot_size = 0;
+    result.tot_count = 0;
+    result.tag_size = 0;
+    result.tag_count = 0;
+    result.obj_count = 0;
 
-  clazz = (*env)->FindClass(env, "org/neo4j/deepintrospect/SizeCount");
-  init = (*env)->GetMethodID(env, clazz, "<init>", "(JJJJ)V");
+    (*(globalData->jvmti))->IterateOverObjectsReachableFromObject(
+       globalData->jvmti, tagged_objects[i], &sum_object_sizes, (void*)&result);
 
-  return (*env)->NewObject(env, clazz, init, result.size, result.count, 
-                           result.obj_total, result.obj_count);
+    (*env)->CallVoidMethod(env, java_result, method, tagged_objects[i],
+                           result.tot_size, result.tot_count);
+  }
+
+  if (tagged_objects)
+    (*(globalData->jvmti))->Deallocate( globalData->jvmti,
+                                        (unsigned char*)(void*)tagged_objects );
+
+  return java_result;
 }

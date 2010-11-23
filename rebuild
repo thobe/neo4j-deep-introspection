@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd `dirname $0`
+
+mvn clean package dependency:copy-dependencies -Dmaven.javadoc.skip=true
